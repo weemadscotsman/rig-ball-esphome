@@ -1,0 +1,72 @@
+name: Build Rig Firmware
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install ESPHome
+        run: |
+          pip install esphome==2026.3.2
+          esphome version
+      
+      - name: Create secrets.yaml
+        run: |
+          cat > secrets.yaml << 'EOF'
+          wifi_ssid: "DUMMY_SSID"
+          wifi_password: "DUMMY_PASSWORD"
+          EOF
+      
+      - name: Compile firmware
+        run: |
+          esphome compile xiaozhi-rig.yaml
+      
+      - name: Find firmware file
+        id: find-firmware
+        run: |
+          FIRMWARE_PATH=$(find . -name "firmware.bin" -path "*/.esphome/build/*" | head -1)
+          echo "Found firmware at: $FIRMWARE_PATH"
+          echo "path=$FIRMWARE_PATH" >> $GITHUB_OUTPUT
+      
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rig-ball-firmware
+          path: ${{ steps.find-firmware.outputs.path }}
+      
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+          cp "${{ steps.find-firmware.outputs.path }}" release/firmware.bin
+          cp manifest.json release/manifest.json
+          cp flash.html release/index.html
+      
+      - name: Upload to GitHub Pages
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: release
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
