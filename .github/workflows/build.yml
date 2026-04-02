@@ -31,7 +31,7 @@ jobs:
       
       - name: Compile firmware
         run: |
-          esphome compile ball_v2_arduino.yaml || esphome compile xiaozhi-rig.yaml
+          esphome compile ball_v2_arduino.yaml
       
       - name: Find firmware file
         id: find-firmware
